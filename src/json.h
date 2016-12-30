@@ -92,7 +92,8 @@ enum TokenType {
     JSON_TOKEN_COLON,
     JSON_TOKEN_TEXT,
     JSON_TOKEN_NUMBER_DECIMAL,
-    JSON_TOKEN_NUMBER_INTEGER,
+    JSON_TOKEN_NUMBER_LONG,
+    JSON_TOKEN_NUMBER_BIGINTEGER,
     JSON_TOKEN_TRUE,
     JSON_TOKEN_FALSE,
     JSON_TOKEN_NULL,
@@ -109,7 +110,13 @@ JsonError json_tokenizer_destroy(TokenizerHandle * tokenizer);
 
 TokenType json_tokenizer_readNextToken(TokenizerHandle * tokenizer);
 
-char * json_tokenizer_getValue(TokenizerHandle * tokenizer);
+char * json_tokenizer_getStringValue(TokenizerHandle * tokenizer);
+
+char * json_tokenizer_getNumberValue(TokenizerHandle * tokenizer);
+
+double json_tokenizer_getDoubleValue(TokenizerHandle * tokenizer);
+
+long json_tokenizer_getLongValue(TokenizerHandle * tokenizer);
 
 JsonError json_tokenizer_getError(TokenizerHandle * tokenizer);
 

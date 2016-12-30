@@ -36,8 +36,10 @@ char * json_token_name(TokenType token) {
             return "String";
         case JSON_TOKEN_NUMBER_DECIMAL:
             return "Decimal";
-        case JSON_TOKEN_NUMBER_INTEGER:
+        case JSON_TOKEN_NUMBER_LONG:
             return "Integer";
+        case JSON_TOKEN_NUMBER_BIGINTEGER:
+            return "Big integer";
         case JSON_TOKEN_TRUE:
             return "True";
         case JSON_TOKEN_FALSE:
@@ -106,14 +108,37 @@ JsonError json_tokenizer_destroy(TokenizerHandle * tokenizer) {
 }
 
 /*
- * Get the value associated with a token.
- *
- * Currently only the following tokens have values:
- *   JSON_TOKEN_STRING: The string itself.
- *   JSON_TOKEN_NUMBER: The number in string form.
+ * Get the string value associated with a JSON_TOKEN_STRING token.
  */
-char * json_tokenizer_getValue(TokenizerHandle * tokenizer) {
+char * json_tokenizer_getStringValue(TokenizerHandle * tokenizer) {
     return tokenizer->valueBuffer;
+}
+
+/*
+ * Get the string representation of the number associated with the following tokens:
+ *  - JSON_TOKEN_NUMBER_DECIMAL
+ *  - JSON_TOKEN_NUMBER_LONG
+ *  - JSON_TOKEN_NUMBER_BIGINTEGER
+ */
+char * json_tokenizer_getNumberValue(TokenizerHandle * tokenizer) {
+    if(tokenizer->valueBufferSize <= 4)
+        return NULL;
+
+    return tokenizer->valueBuffer + JSON_NUMBER_MAX_CHARS;
+}
+
+/*
+ * Get the double value associated with a JSON_TOKEN_NUMBER_DECIMAL token.
+ */
+double json_tokenizer_getDoubleValue(TokenizerHandle * tokenizer) {
+    return *((double *) tokenizer->valueBuffer);
+}
+
+/*
+ * Get the long value associated with a JSON_TOKEN_NUMBER_LONG token.
+ */
+long json_tokenizer_getLongValue(TokenizerHandle * tokenizer) {
+    return *((long *) tokenizer->valueBuffer);
 }
 
 /*
@@ -289,8 +314,8 @@ TokenType json_tokenizer_readNumber(TokenizerHandle * tokenizer) {
     bool seenDecimal = false;
     int exponent = 0;
 
-    long number = 0;
-    
+
+
     // TODO: Parse number, placing number in value buffer
 
     return JSON_TOKEN_ERROR;
