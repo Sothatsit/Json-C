@@ -11,7 +11,7 @@ struct TokenizerHandle {
     JsonBuffer * buffer;
 
     double doubleValue;
-    long longValue;
+    long int longValue;
 
     char * valueBuffer;
     int valueBufferSize;
@@ -136,9 +136,9 @@ double json_tokenizer_getDecimalValue(TokenizerHandle * tokenizer) {
 }
 
 /*
- * Get the long value associated with a JSON_TOKEN_NUMBER_LONG token.
+ * Get the long int value associated with a JSON_TOKEN_NUMBER_INTEGER token.
  */
-long json_tokenizer_getIntegerValue(TokenizerHandle * tokenizer) {
+long int json_tokenizer_getIntegerValue(TokenizerHandle * tokenizer) {
     return tokenizer->longValue;
 }
 
