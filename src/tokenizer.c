@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <limits.h>
 
 #include "buffer_internal.h"
 #include "tokenizer_internal.h"
@@ -8,6 +9,9 @@
  */
 struct TokenizerHandle {
     JsonBuffer * buffer;
+
+    double doubleValue;
+    long longValue;
 
     char * valueBuffer;
     int valueBufferSize;
@@ -35,11 +39,11 @@ char * json_token_name(TokenType token) {
         case JSON_TOKEN_TEXT:
             return "String";
         case JSON_TOKEN_NUMBER_DECIMAL:
-            return "Decimal";
-        case JSON_TOKEN_NUMBER_LONG:
-            return "Integer";
-        case JSON_TOKEN_NUMBER_BIGINTEGER:
-            return "Big integer";
+            return "Decimal number";
+        case JSON_TOKEN_NUMBER_INTEGER:
+            return "Integer number";
+        case JSON_TOKEN_NUMBER_BIG:
+            return "Big number";
         case JSON_TOKEN_TRUE:
             return "True";
         case JSON_TOKEN_FALSE:
@@ -117,28 +121,25 @@ char * json_tokenizer_getStringValue(TokenizerHandle * tokenizer) {
 /*
  * Get the string representation of the number associated with the following tokens:
  *  - JSON_TOKEN_NUMBER_DECIMAL
- *  - JSON_TOKEN_NUMBER_LONG
- *  - JSON_TOKEN_NUMBER_BIGINTEGER
+ *  - JSON_TOKEN_NUMBER_INTEGER
+ *  - JSON_TOKEN_NUMBER_BIG
  */
 char * json_tokenizer_getNumberValue(TokenizerHandle * tokenizer) {
-    if(tokenizer->valueBufferSize <= 4)
-        return NULL;
-
-    return tokenizer->valueBuffer + JSON_NUMBER_MAX_CHARS;
+    return tokenizer->valueBuffer;
 }
 
 /*
  * Get the double value associated with a JSON_TOKEN_NUMBER_DECIMAL token.
  */
-double json_tokenizer_getDoubleValue(TokenizerHandle * tokenizer) {
-    return *((double *) tokenizer->valueBuffer);
+double json_tokenizer_getDecimalValue(TokenizerHandle * tokenizer) {
+    return tokenizer->doubleValue;
 }
 
 /*
  * Get the long value associated with a JSON_TOKEN_NUMBER_LONG token.
  */
-long json_tokenizer_getLongValue(TokenizerHandle * tokenizer) {
-    return *((long *) tokenizer->valueBuffer);
+long json_tokenizer_getIntegerValue(TokenizerHandle * tokenizer) {
+    return tokenizer->longValue;
 }
 
 /*

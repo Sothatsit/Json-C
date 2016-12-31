@@ -3,16 +3,6 @@
 #include "json.h"
 #endif
 
-/*
- * The larger size of double and long.
- */
-#define JSON_NUMBER_MAX_BYTES (sizeof(double) > sizeof(long) ? sizeof(double) : sizeof(long))
-
-/*
- * The minimum number of char's required to hold JSON_NUMBER_MAX_BYTES.
- */
-#define JSON_NUMBER_MAX_CHARS ((JSON_NUMBER_MAX_BYTES + sizeof(char) - 1) / sizeof(char))
-
 JsonError json_tokenizer_expandValueBuffer(TokenizerHandle * tokenizer);
 
 JsonError json_tokenizer_ensureCharAvailableInBuffer(TokenizerHandle *tokenizer);
