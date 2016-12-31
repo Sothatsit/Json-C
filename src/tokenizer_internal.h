@@ -5,11 +5,15 @@
 
 JsonError json_tokenizer_expandValueBuffer(TokenizerHandle * tokenizer);
 
-JsonError json_tokenizer_ensureCharAvailableInBuffer(TokenizerHandle *tokenizer);
+JsonError json_tokenizer_ensureCharAvailableInBuffer(TokenizerHandle * tokenizer);
+
+JsonError json_tokenizer_appendToValueBuffer(TokenizerHandle * tokenizer, int * valueBufferIndex, char character);
 
 JsonError json_tokenizer_skipWhitespace(TokenizerHandle * tokenizer);
 
 TokenType json_tokenizer_readNumber(TokenizerHandle * tokenizer);
+
+JsonError json_tokenizer_readIntegerPart(TokenizerHandle * tokenizer, int * valueBufferIndex);
 
 JsonError json_tokenizer_readString(TokenizerHandle * tokenizer);
 

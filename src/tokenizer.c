@@ -10,8 +10,8 @@
 struct TokenizerHandle {
     JsonBuffer * buffer;
 
-    double doubleValue;
-    long int longValue;
+    double decimalValue;
+    long int integerValue;
 
     char * valueBuffer;
     int valueBufferSize;
@@ -132,14 +132,14 @@ char * json_tokenizer_getNumberValue(TokenizerHandle * tokenizer) {
  * Get the double value associated with a JSON_TOKEN_NUMBER_DECIMAL token.
  */
 double json_tokenizer_getDecimalValue(TokenizerHandle * tokenizer) {
-    return tokenizer->doubleValue;
+    return tokenizer->decimalValue;
 }
 
 /*
  * Get the long int value associated with a JSON_TOKEN_NUMBER_INTEGER token.
  */
 long int json_tokenizer_getIntegerValue(TokenizerHandle * tokenizer) {
-    return tokenizer->longValue;
+    return tokenizer->integerValue;
 }
 
 /*
@@ -268,6 +268,26 @@ JsonError json_tokenizer_ensureCharAvailableInBuffer(TokenizerHandle *tokenizer)
 }
 
 /*
+ * Places the character in the value buffer at the index in valueBufferIndex.
+ *
+ * If valueBufferIndex is equal to the size of the value buffer, the buffer will be expanded.
+ *
+ * Result is undefined if the value buffer index is greater than the value buffer size.
+ */
+JsonError json_tokenizer_appendToValueBuffer(TokenizerHandle * tokenizer, int * valueBufferIndex, char character) {
+    if(*valueBufferIndex >= tokenizer->valueBufferSize) {
+        JsonError error = json_tokenizer_expandValueBuffer(tokenizer);
+
+        if(error)
+            return error;
+    }
+
+    tokenizer->valueBuffer[(*valueBufferIndex)++] = character;
+
+    return JSON_SUCCESS;
+}
+
+/*
  * Increments forward from the character at the buffer index until a non-whitespace character is found.
  */
 JsonError json_tokenizer_skipWhitespace(TokenizerHandle * tokenizer) {
@@ -295,31 +315,212 @@ JsonError json_tokenizer_skipWhitespace(TokenizerHandle * tokenizer) {
  * Assumes that the first character of the number has not already been read.
  */
 TokenType json_tokenizer_readNumber(TokenizerHandle * tokenizer) {
+    int valueBufferIndex = 0;
+
+    JsonError error;
+
     JsonBuffer * buffer = tokenizer->buffer;
 
-    JsonError error = json_tokenizer_ensureCharAvailableInBuffer(tokenizer);
+    //
+    // 1. Check for a negative sign. If it is there, add it to the buffer and consume it.
+    //
+    {
+        error = json_tokenizer_ensureCharAvailableInBuffer(tokenizer);
+
+        if(error != JSON_SUCCESS) {
+            tokenizer->error = error;
+            return JSON_TOKEN_ERROR;
+        }
+
+        if(buffer->buffer[buffer->index] == '-') {
+            buffer->index++;
+            tokenizer->valueBuffer[valueBufferIndex++] = '-';
+        }
+    }
+
+    //
+    // 2. Read the integer part before the decimal point.
+    //
+    {
+        error = json_tokenizer_readIntegerPart(tokenizer, &valueBufferIndex);
+
+        if(error != JSON_SUCCESS) {
+            tokenizer->error = error;
+            return JSON_TOKEN_ERROR;
+        }
+    }
+
+    //
+    // 3. Look for a decimal point. If not found return as integer or big number.
+    //
+    {
+        error = json_tokenizer_ensureCharAvailableInBuffer(tokenizer);
+
+        if(error != JSON_ERROR_EOF && error != JSON_SUCCESS) {
+            tokenizer->error = error;
+            return JSON_TOKEN_ERROR;
+        }
+
+        if(error == JSON_ERROR_EOF || buffer->buffer[buffer->index] != '.') {
+            error = json_tokenizer_appendToValueBuffer(tokenizer, &valueBufferIndex, '\0');
+
+            if(error != JSON_SUCCESS) {
+                tokenizer->error = error;
+                return JSON_TOKEN_ERROR;
+            }
+
+            // TODO: Resolve the value of the integer.
+            return JSON_TOKEN_NUMBER_BIG;
+        }
+
+        buffer->index++; // Consume the decimal point.
+
+        error = json_tokenizer_appendToValueBuffer(tokenizer, &valueBufferIndex, '.');
+
+        if(error != JSON_SUCCESS) {
+            tokenizer->error = error;
+            return JSON_TOKEN_ERROR;
+        }
+    }
+
+    //
+    // 4. Read the digits after the decimal point.
+    //
+    {
+        error = json_tokenizer_readIntegerPart(tokenizer, &valueBufferIndex);
+
+        if(error != JSON_SUCCESS) {
+            tokenizer->error = error;
+            return JSON_TOKEN_ERROR;
+        }
+    }
+
+    //
+    // 5. Look for an exponent. If not found return as decimal or big number.
+    //
+    {
+        error = json_tokenizer_ensureCharAvailableInBuffer(tokenizer);
+
+        if(error != JSON_ERROR_EOF && error != JSON_SUCCESS) {
+            tokenizer->error = error;
+            return JSON_TOKEN_ERROR;
+        }
+
+        char nextCharacter = buffer->buffer[buffer->index];
+
+        if(error == JSON_ERROR_EOF || (nextCharacter != 'e' && nextCharacter != 'E')) {
+            error = json_tokenizer_appendToValueBuffer(tokenizer, &valueBufferIndex, '\0');
+
+            if(error != JSON_SUCCESS) {
+                tokenizer->error = error;
+                return JSON_TOKEN_ERROR;
+            }
+
+            // TODO: Resolve the value of the decimal number.
+            return JSON_TOKEN_NUMBER_DECIMAL;
+        }
+
+        buffer->index++; // Consume the exponent letter.
+
+        error = json_tokenizer_appendToValueBuffer(tokenizer, &valueBufferIndex, 'e');
+
+        if(error != JSON_SUCCESS) {
+            tokenizer->error = error;
+            return JSON_TOKEN_ERROR;
+        }
+    }
+
+    //
+    // 6. Look for the sign of the exponent. If found, add it to the value buffer.
+    //
+    {
+        error = json_tokenizer_ensureCharAvailableInBuffer(tokenizer);
+
+        if(error != JSON_SUCCESS) {
+            tokenizer->error = error;
+            return JSON_TOKEN_ERROR;
+        }
+
+        char nextCharacter = buffer->buffer[buffer->index];
+
+        if(nextCharacter < '0' || nextCharacter > '9') {
+            if(nextCharacter != '+' && nextCharacter != '-') {
+                tokenizer->error = JSON_ERROR_EXPECTED_DIGIT_OR_SIGN;
+                return JSON_TOKEN_ERROR;
+            }
+
+            buffer->index++; // Consume the sign letter.
+
+            error = json_tokenizer_appendToValueBuffer(tokenizer, &valueBufferIndex, nextCharacter);
+
+            if(error != JSON_SUCCESS) {
+                tokenizer->error = error;
+                return JSON_TOKEN_ERROR;
+            }
+        }
+    }
+
+    //
+    // 7. Read the digits of the exponent.
+    //
+    {
+        error = json_tokenizer_readIntegerPart(tokenizer, &valueBufferIndex);
+
+        if(error != JSON_SUCCESS) {
+            tokenizer->error = error;
+            return JSON_TOKEN_ERROR;
+        }
+    }
+
+    error = json_tokenizer_appendToValueBuffer(tokenizer, &valueBufferIndex, '\0');
 
     if(error != JSON_SUCCESS) {
         tokenizer->error = error;
         return JSON_TOKEN_ERROR;
     }
 
-    bool negative = false;
+    // TODO: Resolve the value of the decimal number.
+    return JSON_TOKEN_NUMBER_DECIMAL;
+}
 
-    if(buffer->buffer[buffer->index] == '-') {
-        buffer->index++;
+/*
+ * Reads an integer part of a number, continuing until a non-digit character is found.
+ *
+ * Places the number in the value buffer of the tokenizer at the index in valueBufferIndex.
+ */
+JsonError json_tokenizer_readIntegerPart(TokenizerHandle * tokenizer, int * valueBufferIndex) {
+    int originalValueBufferIndex = *valueBufferIndex;
 
-        negative = true;
+    JsonError error;
+
+    JsonBuffer * buffer = tokenizer->buffer;
+
+    while(true) {
+        while(buffer->index < buffer->read) {
+            char current = buffer->buffer[buffer->index++];
+
+            if(current < '0' || current > '9') {
+                // Don't consume the character after the integer part.
+                buffer->index--;
+
+                // If no digits were found.
+                if(originalValueBufferIndex == *valueBufferIndex)
+                    return JSON_ERROR_EXPECTED_DIGIT;
+
+                return JSON_SUCCESS;
+            }
+
+            error = json_tokenizer_appendToValueBuffer(tokenizer, valueBufferIndex, current);
+
+            if(error != JSON_SUCCESS)
+                return error;
+        }
+
+        error = json_buffer_fill(buffer);
+
+        if(error != JSON_SUCCESS)
+            return error;
     }
-
-    bool seenDecimal = false;
-    int exponent = 0;
-
-
-
-    // TODO: Parse number, placing number in value buffer
-
-    return JSON_TOKEN_ERROR;
 }
 
 /*

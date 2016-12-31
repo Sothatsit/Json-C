@@ -30,16 +30,16 @@ char * json_error_name(JsonError error) {
             return "Unable to re-allocate memory block";
         case JSON_ERROR_UNEXPECTED_CHAR:
             return "Unexpected character";
+        case JSON_ERROR_EXPECTED_DIGIT:
+            return "Expected a digit";
+        case JSON_ERROR_EXPECTED_DIGIT_OR_SIGN:
+            return "Expected a digit or +/-";
         case JSON_ERROR_ILLEGAL_TEXT_CHAR:
             return "Illegal character in text";
         case JSON_ERROR_INVALID_ESCAPE:
             return "Invalid escape sequence";
         case JSON_ERROR_INVALID_UNICODE_ESCAPED_CHAR:
             return "Invalid hex character in escaped unicode character";
-        case JSON_ERROR_DUPLICATE_DECIMAL_POINT:
-            return "Duplicate decimal point";
-        case JSON_ERROR_DUPLICATE_EXPONENT:
-            return "Duplicate exponent";
         case JSON_ERROR_EXPECTED_TRUE:
             return "Expected true";
         case JSON_ERROR_EXPECTED_FALSE:

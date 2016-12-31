@@ -37,10 +37,12 @@ int main(int argc, char *argv[]) {
 
         switch(token) {
             case JSON_TOKEN_TEXT:
-                printf("\"%s\"\n", json_tokenizer_getValue(tokenizer));
+                printf("\"%s\"\n", json_tokenizer_getStringValue(tokenizer));
                 break;
-            case JSON_TOKEN_NUMBER:
-                printf("%s\n", json_tokenizer_getValue(tokenizer));
+            case JSON_TOKEN_NUMBER_DECIMAL:
+            case JSON_TOKEN_NUMBER_INTEGER:
+            case JSON_TOKEN_NUMBER_BIG:
+                printf("%s\n", json_tokenizer_getNumberValue(tokenizer));
                 break;
             default:
                 printf("\n");
