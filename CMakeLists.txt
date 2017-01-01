@@ -5,7 +5,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 set(SOURCE_FILES
         src/json.h
-        src/characters.c
+        src/characters.c src/characters.h
         src/buffer.c src/buffer_internal.h
         src/errors.c src/errors_internal.h
         src/tokenizer.c src/tokenizer_internal.h

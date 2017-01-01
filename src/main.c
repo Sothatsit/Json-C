@@ -40,8 +40,9 @@ int main(int argc, char *argv[]) {
                 printf("\"%s\"\n", json_tokenizer_getStringValue(tokenizer));
                 break;
             case JSON_TOKEN_NUMBER_DECIMAL:
+            case JSON_TOKEN_NUMBER_BIG_DECIMAL:
             case JSON_TOKEN_NUMBER_INTEGER:
-            case JSON_TOKEN_NUMBER_BIG:
+            case JSON_TOKEN_NUMBER_BIG_INTEGER:
                 printf("%s\n", json_tokenizer_getNumberValue(tokenizer));
                 break;
             default:

@@ -3,6 +3,33 @@
 #include "json.h"
 #endif
 
+/*
+ * Get the character at the buffer index.
+ */
+#define json_buffer_get(jsonBuffer) (jsonBuffer->buffer[jsonBuffer->index])
+
+/*
+ * Get and consume the character at the buffer index.
+ */
+#define json_buffer_get_consume(jsonBuffer) (jsonBuffer->buffer[jsonBuffer->index++])
+
+/*
+ * Consume the character at the buffer index.
+ */
+#define json_buffer_consume(jsonBuffer) (jsonBuffer->index++)
+
+/*
+ * Move the buffer index back to undo consuming a character.
+ */
+#define json_buffer_unconsume(jsonBuffer) (jsonBuffer->index--)
+
+/*
+ * Ensure there is at least one character in the buffer, reading if necessary.
+ *
+ * Resolves to a JsonError.
+ */
+#define json_buffer_ensureAvailable(jsonBuffer) (jsonBuffer->index < jsonBuffer->read ? JSON_SUCCESS : json_buffer_fill(jsonBuffer))
+
 typedef enum BufferType BufferType;
 
 /*

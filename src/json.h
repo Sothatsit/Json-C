@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include "characters.h"
 
 //
 // Json Errors
@@ -62,18 +63,6 @@ void json_error_printReason(FILE * stream, JsonError error);
 void json_error_printContext(FILE * stream, JsonBuffer * buffer);
 
 //
-// Characters
-//
-
-bool json_char_isWhitespace(char c);
-
-bool json_char_isControlCharacter(char c);
-
-bool json_char_isValidTextChar(char c);
-
-int json_char_UCSCodepointToUTF8(int codepoint, char * buffer);
-
-//
 // Json Tokenizer
 //
 
@@ -92,8 +81,9 @@ enum TokenType {
     JSON_TOKEN_COLON,
     JSON_TOKEN_TEXT,
     JSON_TOKEN_NUMBER_DECIMAL,
+    JSON_TOKEN_NUMBER_BIG_DECIMAL,
     JSON_TOKEN_NUMBER_INTEGER,
-    JSON_TOKEN_NUMBER_BIG,
+    JSON_TOKEN_NUMBER_BIG_INTEGER,
     JSON_TOKEN_TRUE,
     JSON_TOKEN_FALSE,
     JSON_TOKEN_NULL,
