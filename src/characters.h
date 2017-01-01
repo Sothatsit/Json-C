@@ -14,7 +14,12 @@
 /*
  * Returns whether the character is considered by JSON to be a control character.
  */
-#define json_char_isControlCharacter(character) (character >= 0 && character <= 31)
+#define json_char_isControlCharacter(c) (c >= 0 && c <= 31)
+
+/*
+ * Returns whether the character is considered by JSON to be a digit.
+ */
+#define json_char_isDigit(c) (c >= '0' && c <= '9')
 
 /*
  * Places the UCS codepoint as UTF-8 in the buffer.

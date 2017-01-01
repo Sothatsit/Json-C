@@ -302,7 +302,7 @@ TokenType json_tokenizer_readNextToken(TokenizerHandle * tokenizer) {
 
             return JSON_TOKEN_NULL;
         default:
-            if(c == '-' || (c >= '0' && c <= '9')) {
+            if(c == '-' || json_char_isDigit(c)) {
                 // The first character matters when reading the number
                 json_buffer_unconsume(buffer);
 
@@ -370,7 +370,7 @@ JsonError json_tokenizer_readNumber(TokenizerHandle * tokenizer, TokenType * tok
             // Move back again so the 0 does not remain consumed.
             json_buffer_unconsume(buffer);
 
-            if(next >= '0' && next <= '9') {
+            if(json_char_isDigit(next)) {
                 return JSON_ERROR_UNNECESSARY_ZERO;
             }
         }
@@ -492,7 +492,7 @@ JsonError json_tokenizer_readNumber(TokenizerHandle * tokenizer, TokenType * tok
                 return error;
         }
     }
-    
+
     // Read the digits of the exponent.
     {
         error = json_tokenizer_readIntegerPart(tokenizer);
