@@ -1,5 +1,4 @@
 #include <stdlib.h>
-#include <limits.h>
 
 #include "buffer_internal.h"
 #include "tokenizer_internal.h"
@@ -147,28 +146,10 @@ long int json_tokenizer_getIntegerValue(TokenizerHandle * tokenizer) {
 }
 
 /*
- * If an error has occurred in the tokenizer this will return the error, otherwise will return JSON_SUCCESS.
- */
-JsonError json_tokenizer_getError(TokenizerHandle * tokenizer) {
-    return tokenizer->error;
-}
-
-/*
  * Gets the buffer that the tokenizer is reading from.
  */
 JsonBuffer * json_tokenizer_getBuffer(TokenizerHandle * tokenizer) {
     return tokenizer->buffer;
-}
-
-/*
- * Logs the error and the context of the error in the tokenizer.
- */
-void json_tokenizer_logError(TokenizerHandle * tokenizer) {
-    if(tokenizer->buffer->index > 0) {
-        tokenizer->buffer->index--;
-    }
-
-    json_error_log(tokenizer->error, tokenizer->buffer);
 }
 
 /*
@@ -188,17 +169,35 @@ JsonError json_tokenizer_expandValueBuffer(TokenizerHandle * tokenizer) {
  *
  * Result is undefined if the value buffer index is greater than the value buffer size.
  */
-JsonError json_tokenizer_appendToValueBuffer(TokenizerHandle * tokenizer, int * valueBufferIndex, char character) {
-    if(*valueBufferIndex >= tokenizer->valueBufferSize) {
+JsonError json_tokenizer_appendToValueBuffer(TokenizerHandle * tokenizer, char character) {
+    if(tokenizer->valueBufferIndex >= tokenizer->valueBufferSize) {
         JsonError error = json_tokenizer_expandValueBuffer(tokenizer);
 
-        if(error)
+        if(error != JSON_SUCCESS)
             return error;
     }
 
-    tokenizer->valueBuffer[(*valueBufferIndex)++] = character;
+    tokenizer->valueBuffer[tokenizer->valueBufferIndex++] = character;
 
     return JSON_SUCCESS;
+}
+
+/*
+ * If an error has occurred in the tokenizer this will return the error, otherwise will return JSON_SUCCESS.
+ */
+JsonError json_tokenizer_getError(TokenizerHandle * tokenizer) {
+    return tokenizer->error;
+}
+
+/*
+ * Logs the error and the context of the error in the tokenizer.
+ */
+void json_tokenizer_logError(TokenizerHandle * tokenizer) {
+    if(tokenizer->buffer->index > 0) {
+        tokenizer->buffer->index--;
+    }
+
+    json_error_log(tokenizer->error, tokenizer->buffer);
 }
 
 /*
@@ -330,11 +329,11 @@ TokenType json_tokenizer_readNextToken(TokenizerHandle * tokenizer) {
  * Assumes that the first character of the number has not already been read.
  */
 JsonError json_tokenizer_readNumber(TokenizerHandle * tokenizer, TokenType * token) {
-    int valueBufferIndex = 0;
-
     JsonError error;
 
     JsonBuffer * buffer = tokenizer->buffer;
+
+    tokenizer->valueBufferIndex = 0;
 
     //
     // 1. Check for a negative sign. If it is there, add it to the buffer and consume it.
@@ -347,7 +346,8 @@ JsonError json_tokenizer_readNumber(TokenizerHandle * tokenizer, TokenType * tok
 
         if(json_buffer_get(buffer) == '-') {
             json_buffer_consume(buffer);
-            tokenizer->valueBuffer[valueBufferIndex++] = '-';
+
+            json_tokenizer_appendToValueBuffer(tokenizer, '-');
         }
     }
 
@@ -355,7 +355,7 @@ JsonError json_tokenizer_readNumber(TokenizerHandle * tokenizer, TokenType * tok
     // 2. Read the integer part before the decimal point.
     //
     {
-        error = json_tokenizer_readIntegerPart(tokenizer, &valueBufferIndex);
+        error = json_tokenizer_readIntegerPart(tokenizer);
 
         if(error != JSON_SUCCESS)
             return error;
@@ -372,7 +372,7 @@ JsonError json_tokenizer_readNumber(TokenizerHandle * tokenizer, TokenType * tok
 
         if(error == JSON_ERROR_EOF || json_buffer_get(buffer) != '.') {
             // Add the end for the number string.
-            error = json_tokenizer_appendToValueBuffer(tokenizer, &valueBufferIndex, '\0');
+            error = json_tokenizer_appendToValueBuffer(tokenizer, '\0');
 
             if(error != JSON_SUCCESS)
                 return error;
@@ -385,7 +385,7 @@ JsonError json_tokenizer_readNumber(TokenizerHandle * tokenizer, TokenType * tok
 
         json_buffer_consume(buffer);
 
-        error = json_tokenizer_appendToValueBuffer(tokenizer, &valueBufferIndex, '.');
+        error = json_tokenizer_appendToValueBuffer(tokenizer, '.');
 
         if(error != JSON_SUCCESS)
             return error;
@@ -395,7 +395,7 @@ JsonError json_tokenizer_readNumber(TokenizerHandle * tokenizer, TokenType * tok
     // 4. Read the digits after the decimal point.
     //
     {
-        error = json_tokenizer_readIntegerPart(tokenizer, &valueBufferIndex);
+        error = json_tokenizer_readIntegerPart(tokenizer);
 
         if(error != JSON_SUCCESS)
             return error;
@@ -414,7 +414,7 @@ JsonError json_tokenizer_readNumber(TokenizerHandle * tokenizer, TokenType * tok
 
         if(error == JSON_ERROR_EOF || (nextCharacter != 'e' && nextCharacter != 'E')) {
             // Add the end for the number string.
-            error = json_tokenizer_appendToValueBuffer(tokenizer, &valueBufferIndex, '\0');
+            error = json_tokenizer_appendToValueBuffer(tokenizer, '\0');
 
             if(error != JSON_SUCCESS)
                 return error;
@@ -427,7 +427,7 @@ JsonError json_tokenizer_readNumber(TokenizerHandle * tokenizer, TokenType * tok
 
         json_buffer_consume(buffer);
 
-        error = json_tokenizer_appendToValueBuffer(tokenizer, &valueBufferIndex, 'e');
+        error = json_tokenizer_appendToValueBuffer(tokenizer, 'e');
 
         if(error != JSON_SUCCESS)
             return error;
@@ -451,7 +451,7 @@ JsonError json_tokenizer_readNumber(TokenizerHandle * tokenizer, TokenType * tok
 
             json_buffer_consume(buffer);
 
-            error = json_tokenizer_appendToValueBuffer(tokenizer, &valueBufferIndex, nextCharacter);
+            error = json_tokenizer_appendToValueBuffer(tokenizer, nextCharacter);
 
             if(error != JSON_SUCCESS)
                 return error;
@@ -462,14 +462,14 @@ JsonError json_tokenizer_readNumber(TokenizerHandle * tokenizer, TokenType * tok
     // 7. Read the digits of the exponent.
     //
     {
-        error = json_tokenizer_readIntegerPart(tokenizer, &valueBufferIndex);
+        error = json_tokenizer_readIntegerPart(tokenizer);
 
         if(error != JSON_SUCCESS)
             return error;
     }
 
     // Add the end for the number string.
-    error = json_tokenizer_appendToValueBuffer(tokenizer, &valueBufferIndex, '\0');
+    error = json_tokenizer_appendToValueBuffer(tokenizer, '\0');
 
     if(error != JSON_SUCCESS)
         return error;
@@ -487,12 +487,12 @@ JsonError json_tokenizer_readNumber(TokenizerHandle * tokenizer, TokenType * tok
  *
  * Places the number in the value buffer of the tokenizer at the index in valueBufferIndex.
  */
-JsonError json_tokenizer_readIntegerPart(TokenizerHandle * tokenizer, int * valueBufferIndex) {
+JsonError json_tokenizer_readIntegerPart(TokenizerHandle * tokenizer) {
     JsonError error;
 
     JsonBuffer * buffer = tokenizer->buffer;
 
-    int originalValueBufferIndex = *valueBufferIndex;
+    int originalValueBufferIndex = tokenizer->valueBufferIndex;
 
     while(true) {
         while(buffer->index < buffer->read) {
@@ -502,14 +502,14 @@ JsonError json_tokenizer_readIntegerPart(TokenizerHandle * tokenizer, int * valu
                 json_buffer_unconsume(buffer);
 
                 // If no digits were found.
-                if(originalValueBufferIndex == *valueBufferIndex) {
+                if(originalValueBufferIndex == tokenizer->valueBufferIndex) {
                     return JSON_ERROR_EXPECTED_DIGIT;
                 }
 
                 return JSON_SUCCESS;
             }
 
-            error = json_tokenizer_appendToValueBuffer(tokenizer, valueBufferIndex, current);
+            error = json_tokenizer_appendToValueBuffer(tokenizer, current);
 
             if(error != JSON_SUCCESS)
                 return error;
@@ -534,7 +534,7 @@ JsonError json_tokenizer_readString(TokenizerHandle * tokenizer) {
 
     JsonBuffer * buffer = tokenizer->buffer;
 
-    int valueBufferIndex = 0;
+    tokenizer->valueBufferIndex = 0;
 
     while(true) {
         while(buffer->index < buffer->read) {
@@ -544,26 +544,19 @@ JsonError json_tokenizer_readString(TokenizerHandle * tokenizer) {
                 return JSON_ERROR_ILLEGAL_TEXT_CHAR;
             }
 
-            if(valueBufferIndex >= tokenizer->valueBufferSize) {
-                error = json_tokenizer_expandValueBuffer(tokenizer);
-
-                if(error != JSON_SUCCESS)
-                    return error;
-            }
-
             switch(current) {
                 case '\\':
-                    error = json_tokenizer_readEscaped(tokenizer, &valueBufferIndex);
+                    error = json_tokenizer_readEscaped(tokenizer);
 
                     if(error != JSON_SUCCESS)
                         return error;
 
                     break;
                 case '"':
-                    tokenizer->valueBuffer[valueBufferIndex++] = '\0';
+                    json_tokenizer_appendToValueBuffer(tokenizer, '\0');
                     return JSON_SUCCESS;
                 default:
-                    tokenizer->valueBuffer[valueBufferIndex++] = current;
+                    json_tokenizer_appendToValueBuffer(tokenizer, current);
                     break;
             }
         }
@@ -580,7 +573,7 @@ JsonError json_tokenizer_readString(TokenizerHandle * tokenizer) {
  *
  * Assumes the escape symbol (\) has already been read.
  */
-JsonError json_tokenizer_readEscaped(TokenizerHandle * tokenizer, int * valueBufferIndex) {
+JsonError json_tokenizer_readEscaped(TokenizerHandle * tokenizer) {
     JsonError error;
 
     JsonBuffer * buffer = tokenizer->buffer;
@@ -590,38 +583,31 @@ JsonError json_tokenizer_readEscaped(TokenizerHandle * tokenizer, int * valueBuf
     if(error != JSON_SUCCESS)
         return error;
 
-    if(*valueBufferIndex >= tokenizer->valueBufferSize) {
-        error = json_tokenizer_expandValueBuffer(tokenizer);
-
-        if(error != JSON_SUCCESS)
-            return error;
-    }
-
     char current = json_buffer_get_consume(buffer);
 
     switch(current) {
         case '"':
         case '\\':
         case '/':
-            tokenizer->valueBuffer[(*valueBufferIndex)++] = current;
+            json_tokenizer_appendToValueBuffer(tokenizer, current);
             return JSON_SUCCESS;
         case 'b':
-            tokenizer->valueBuffer[(*valueBufferIndex)++] = '\b';
+            json_tokenizer_appendToValueBuffer(tokenizer, '\b');
             return JSON_SUCCESS;
         case 'f':
-            tokenizer->valueBuffer[(*valueBufferIndex)++] = '\f';
+            json_tokenizer_appendToValueBuffer(tokenizer, '\f');
             return JSON_SUCCESS;
         case 'n':
-            tokenizer->valueBuffer[(*valueBufferIndex)++] = '\n';
+            json_tokenizer_appendToValueBuffer(tokenizer, '\n');
             return JSON_SUCCESS;
         case 'r':
-            tokenizer->valueBuffer[(*valueBufferIndex)++] = '\r';
+            json_tokenizer_appendToValueBuffer(tokenizer, '\r');
             return JSON_SUCCESS;
         case 't':
-            tokenizer->valueBuffer[(*valueBufferIndex)++] = '\t';
+            json_tokenizer_appendToValueBuffer(tokenizer, '\t');
             return JSON_SUCCESS;
         case 'u':
-            return json_tokenizer_readCodePoint(tokenizer, valueBufferIndex);
+            return json_tokenizer_readCodePoint(tokenizer);
         default:
             return JSON_ERROR_INVALID_ESCAPE;
     }
@@ -632,7 +618,7 @@ JsonError json_tokenizer_readEscaped(TokenizerHandle * tokenizer, int * valueBuf
  *
  * Assumes the escape symbol (\u) has already been read.
  */
-JsonError json_tokenizer_readCodePoint(TokenizerHandle * tokenizer, int * valueBufferIndex) {
+JsonError json_tokenizer_readCodePoint(TokenizerHandle * tokenizer) {
     JsonError error;
 
     JsonBuffer * buffer = tokenizer->buffer;
@@ -661,20 +647,20 @@ JsonError json_tokenizer_readCodePoint(TokenizerHandle * tokenizer, int * valueB
     }
 
     // Ensure there are at least 6 bytes available in the value buffer.
-    while(tokenizer->valueBufferSize - 6 <= *valueBufferIndex) {
+    while(tokenizer->valueBufferIndex >= tokenizer->valueBufferSize - 6) {
         error = json_tokenizer_expandValueBuffer(tokenizer);
 
         if(error != JSON_SUCCESS)
             return error;
     }
 
-    int bytesWritten = json_char_UCSCodepointToUTF8(codepoint, &(tokenizer->valueBuffer[*valueBufferIndex]));
+    int bytesWritten = json_char_UCSCodepointToUTF8(codepoint, &(tokenizer->valueBuffer[tokenizer->valueBufferIndex]));
 
     if(bytesWritten == -1) {
         return JSON_ERROR_INVALID_UNICODE_ESCAPED_CHAR;
     }
 
-    *valueBufferIndex += bytesWritten;
+    tokenizer->valueBufferIndex += bytesWritten;
 
     return JSON_SUCCESS;
 }
