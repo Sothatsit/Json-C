@@ -30,6 +30,8 @@ char * json_error_name(JsonError error) {
             return "Unable to re-allocate memory block";
         case JSON_ERROR_UNEXPECTED_CHAR:
             return "Unexpected character";
+        case JSON_ERROR_UNNECESSARY_ZERO:
+            return "Unnecessary zero at front of number";
         case JSON_ERROR_EXPECTED_DIGIT:
             return "Expected a digit";
         case JSON_ERROR_EXPECTED_DIGIT_OR_SIGN:

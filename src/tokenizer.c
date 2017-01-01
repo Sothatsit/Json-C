@@ -335,9 +335,7 @@ JsonError json_tokenizer_readNumber(TokenizerHandle * tokenizer, TokenType * tok
 
     tokenizer->valueBufferIndex = 0;
 
-    //
-    // 1. Check for a negative sign. If it is there, add it to the buffer and consume it.
-    //
+    // Check for a negative sign.
     {
         error = json_buffer_ensureAvailable(buffer);
 
@@ -351,9 +349,34 @@ JsonError json_tokenizer_readNumber(TokenizerHandle * tokenizer, TokenType * tok
         }
     }
 
-    //
-    // 2. Read the integer part before the decimal point.
-    //
+    // Ensure that the number does not start with an unnecessary 0.
+    {
+        error = json_buffer_ensureAvailable(buffer);
+
+        if(error != JSON_SUCCESS)
+            return error;
+
+        if(json_buffer_get(buffer) == '0') {
+            // Consume the 0 to read the next character.
+            json_buffer_consume(buffer);
+
+            error = json_buffer_ensureAvailable(buffer);
+
+            if(error != JSON_SUCCESS)
+                return error;
+
+            char next = json_buffer_get(buffer);
+
+            // Move back again so the 0 does not remain consumed.
+            json_buffer_unconsume(buffer);
+
+            if(next >= '0' && next <= '9') {
+                return JSON_ERROR_UNNECESSARY_ZERO;
+            }
+        }
+    }
+
+    // Read the integer part before the decimal point.
     {
         error = json_tokenizer_readIntegerPart(tokenizer);
 
@@ -361,16 +384,14 @@ JsonError json_tokenizer_readNumber(TokenizerHandle * tokenizer, TokenType * tok
             return error;
     }
 
-    //
-    // 3. Look for a decimal point. If not found return as integer or big number.
-    //
+    // Look for a decimal point or exponent.
     {
         error = json_buffer_ensureAvailable(buffer);
 
         if(error != JSON_ERROR_EOF && error != JSON_SUCCESS)
             return error;
 
-        if(error == JSON_ERROR_EOF || json_buffer_get(buffer) != '.') {
+        if(error == JSON_ERROR_EOF) {
             // Add the end for the number string.
             error = json_tokenizer_appendToValueBuffer(tokenizer, '\0');
 
@@ -383,7 +404,26 @@ JsonError json_tokenizer_readNumber(TokenizerHandle * tokenizer, TokenType * tok
             return JSON_SUCCESS;
         }
 
-        json_buffer_consume(buffer);
+        char current = json_buffer_get_consume(buffer);
+
+        if(current == 'e' || current == 'E') {
+            goto readExponent;
+        }
+
+        if(current != '.') {
+            json_buffer_unconsume(buffer);
+
+            // Add the end for the number string.
+            error = json_tokenizer_appendToValueBuffer(tokenizer, '\0');
+
+            if(error != JSON_SUCCESS)
+                return error;
+
+            // TODO: Resolve the value of the integer.
+
+            *token = JSON_TOKEN_NUMBER_BIG_INTEGER;
+            return JSON_SUCCESS;
+        }
 
         error = json_tokenizer_appendToValueBuffer(tokenizer, '.');
 
@@ -391,9 +431,7 @@ JsonError json_tokenizer_readNumber(TokenizerHandle * tokenizer, TokenType * tok
             return error;
     }
 
-    //
-    // 4. Read the digits after the decimal point.
-    //
+    // Read the digits after the decimal point.
     {
         error = json_tokenizer_readIntegerPart(tokenizer);
 
@@ -401,9 +439,7 @@ JsonError json_tokenizer_readNumber(TokenizerHandle * tokenizer, TokenType * tok
             return error;
     }
 
-    //
-    // 5. Look for an exponent. If not found return as decimal or big number.
-    //
+    // Look for an exponent.
     {
         error = json_buffer_ensureAvailable(buffer);
 
@@ -433,9 +469,8 @@ JsonError json_tokenizer_readNumber(TokenizerHandle * tokenizer, TokenType * tok
             return error;
     }
 
-    //
-    // 6. Look for the sign of the exponent. If found, add it to the value buffer.
-    //
+    // Look for the sign of the exponent.
+    readExponent:
     {
         error = json_buffer_ensureAvailable(buffer);
 
@@ -457,10 +492,8 @@ JsonError json_tokenizer_readNumber(TokenizerHandle * tokenizer, TokenType * tok
                 return error;
         }
     }
-
-    //
-    // 7. Read the digits of the exponent.
-    //
+    
+    // Read the digits of the exponent.
     {
         error = json_tokenizer_readIntegerPart(tokenizer);
 
