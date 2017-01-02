@@ -19,8 +19,4 @@ JsonError json_tokenizer_readEscaped(TokenizerHandle * tokenizer);
 
 JsonError json_tokenizer_readCodePoint(TokenizerHandle * tokenizer);
 
-JsonError json_tokenizer_readNull(TokenizerHandle * tokenizer);
-
-JsonError json_tokenizer_readTrue(TokenizerHandle * tokenizer);
-
-JsonError json_tokenizer_readFalse(TokenizerHandle * tokenizer);
+JsonError json_tokenizer_readExpected(TokenizerHandle * tokenizer, char * expected);

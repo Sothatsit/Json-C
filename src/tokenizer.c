@@ -124,8 +124,9 @@ char * json_tokenizer_getStringValue(TokenizerHandle * tokenizer) {
 /*
  * Get the string representation of the number associated with the following tokens:
  *  - JSON_TOKEN_NUMBER_DECIMAL
+ *  - JSON_TOKEN_NUMBER_BIG_DECIMAL
  *  - JSON_TOKEN_NUMBER_INTEGER
- *  - JSON_TOKEN_NUMBER_BIG
+ *  - JSON_TOKEN_NUMBER_BIG_INTEGER
  */
 char * json_tokenizer_getNumberValue(TokenizerHandle * tokenizer) {
     return tokenizer->valueBuffer;
@@ -208,11 +209,11 @@ JsonError json_tokenizer_skipWhitespace(TokenizerHandle * tokenizer) {
 
     while(true) {
         while(buffer->index < buffer->read) {
-            if(!json_char_isWhitespace(buffer->buffer[buffer->index])) {
+            if(!json_char_isWhitespace(json_buffer_get(buffer))) {
                 return JSON_SUCCESS;
             }
 
-            buffer->index++;
+            json_buffer_consume(buffer);
         }
 
         JsonError error = json_buffer_fill(buffer);
@@ -275,27 +276,39 @@ TokenType json_tokenizer_readNextToken(TokenizerHandle * tokenizer) {
 
             return JSON_TOKEN_TEXT;
         case 't':
-            error = json_tokenizer_readTrue(tokenizer);
+            error = json_tokenizer_readExpected(tokenizer, "rue");
 
             if(error != JSON_SUCCESS) {
+                if(error == JSON_ERROR_UNEXPECTED_CHAR) {
+                    error = JSON_ERROR_EXPECTED_TRUE;
+                }
+
                 tokenizer->error = error;
                 return JSON_TOKEN_ERROR;
             }
 
             return JSON_TOKEN_TRUE;
         case 'f':
-            error = json_tokenizer_readFalse(tokenizer);
+            error = json_tokenizer_readExpected(tokenizer, "alse");
 
             if(error != JSON_SUCCESS) {
+                if(error == JSON_ERROR_UNEXPECTED_CHAR) {
+                    error = JSON_ERROR_EXPECTED_FALSE;
+                }
+
                 tokenizer->error = error;
                 return JSON_TOKEN_ERROR;
             }
 
             return JSON_TOKEN_FALSE;
         case 'n':
-            error = json_tokenizer_readNull(tokenizer);
+            error = json_tokenizer_readExpected(tokenizer, "ull");
 
             if(error != JSON_SUCCESS) {
+                if(error == JSON_ERROR_UNEXPECTED_CHAR) {
+                    error = JSON_ERROR_EXPECTED_NULL;
+                }
+
                 tokenizer->error = error;
                 return JSON_TOKEN_ERROR;
             }
@@ -699,120 +712,25 @@ JsonError json_tokenizer_readCodePoint(TokenizerHandle * tokenizer) {
 }
 
 /*
- * Reads null, returning an error if null is not found.
- *
- * Assumes the first character (n) has already been read.
+ * Ensures the next characters in the buffer match the characters in expected.
  */
-JsonError json_tokenizer_readNull(TokenizerHandle * tokenizer) {
+JsonError json_tokenizer_readExpected(TokenizerHandle * tokenizer, char * expected) {
     JsonError error;
 
     JsonBuffer * buffer = tokenizer->buffer;
 
-    error = json_buffer_ensureAvailable(buffer);
+    int index = 0;
 
-    if(error != JSON_SUCCESS)
-        return error;
+    while(expected[index] != '\0') {
+        error = json_buffer_ensureAvailable(buffer);
 
-    if(json_buffer_get_consume(buffer) != 'u')
-        return JSON_ERROR_EXPECTED_NULL;
+        if(error != JSON_SUCCESS)
+            return error;
 
-    error = json_buffer_ensureAvailable(buffer);
-
-    if(error != JSON_SUCCESS)
-        return error;
-
-    if(json_buffer_get_consume(buffer) != 'l')
-        return JSON_ERROR_EXPECTED_NULL;
-
-    error = json_buffer_ensureAvailable(buffer);
-
-    if(error != JSON_SUCCESS)
-        return error;
-
-    if(json_buffer_get_consume(buffer) != 'l')
-        return JSON_ERROR_EXPECTED_NULL;
-
-    return JSON_SUCCESS;
-}
-
-/*
- * Reads true, returning an error if true is not found.
- *
- * Assumes the first character (t) has already been read.
- */
-JsonError json_tokenizer_readTrue(TokenizerHandle * tokenizer) {
-    JsonError error;
-
-    JsonBuffer * buffer = tokenizer->buffer;
-
-    error = json_buffer_ensureAvailable(buffer);
-
-    if(error != JSON_SUCCESS)
-        return error;
-
-    if(json_buffer_get_consume(buffer) != 'r')
-        return JSON_ERROR_EXPECTED_TRUE;
-
-    error = json_buffer_ensureAvailable(buffer);
-
-    if(error != JSON_SUCCESS)
-        return error;
-
-    if(json_buffer_get_consume(buffer) != 'u')
-        return JSON_ERROR_EXPECTED_TRUE;
-
-    error = json_buffer_ensureAvailable(buffer);
-
-    if(error != JSON_SUCCESS)
-        return error;
-
-    if(json_buffer_get_consume(buffer) != 'e')
-        return JSON_ERROR_EXPECTED_TRUE;
-
-    return JSON_SUCCESS;
-}
-
-/*
- * Reads false, returning an error if false is not found.
- *
- * Assumes the first character (f) has already been read.
- */
-JsonError json_tokenizer_readFalse(TokenizerHandle * tokenizer) {
-    JsonError error;
-
-    JsonBuffer * buffer = tokenizer->buffer;
-
-    error = json_buffer_ensureAvailable(buffer);
-
-    if(error != JSON_SUCCESS)
-        return error;
-
-    if(json_buffer_get_consume(buffer) != 'a')
-        return JSON_ERROR_EXPECTED_FALSE;
-
-    error = json_buffer_ensureAvailable(buffer);
-
-    if(error != JSON_SUCCESS)
-        return error;
-
-    if(json_buffer_get_consume(buffer) != 'l')
-        return JSON_ERROR_EXPECTED_FALSE;
-
-    error = json_buffer_ensureAvailable(buffer);
-
-    if(error != JSON_SUCCESS)
-        return error;
-
-    if(json_buffer_get_consume(buffer) != 's')
-        return JSON_ERROR_EXPECTED_FALSE;
-
-    error = json_buffer_ensureAvailable(buffer);
-
-    if(error != JSON_SUCCESS)
-        return error;
-
-    if(json_buffer_get_consume(buffer) != 'e')
-        return JSON_ERROR_EXPECTED_FALSE;
+        if(json_buffer_get_consume(buffer) != expected[index++]) {
+            return JSON_ERROR_UNEXPECTED_CHAR;
+        }
+    }
 
     return JSON_SUCCESS;
 }

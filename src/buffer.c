@@ -37,6 +37,8 @@ JsonBuffer * json_bufferFixed_create(char * buffer, int bufferSize, int history,
  * Allocates a buffer with the contents read from the file passed.
  *
  * Maintains history characters behind the buffer index for error messages.
+ *
+ * The history must be at least 1, otherwise memory errors can occur.
  */
 JsonBuffer * json_bufferedFile_open(char * file, int bufferSize, int history, JsonError * error) {
     BufferedFile * buffer = (BufferedFile *) malloc(sizeof(BufferedFile) + bufferSize);
